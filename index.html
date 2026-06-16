@@ -293,6 +293,8 @@
         let boundsEnabled = true;
         let levelWidth = 0;
         let levelHeight = 0;
+        let levelMinX = 0;
+        let levelMinY = 0;
         let endlessScore = 0;
 
         const CHUNK_SIZE = 1000;
@@ -806,6 +808,26 @@
                 color: p.color
             }));
 
+            if (boundsEnabled && gameMode === 'custom') {
+                let minX = 0;
+                let minY = 0;
+                let maxX = layoutWidth;
+                let maxY = layoutHeight;
+                for (let p of planets) {
+                    minX = Math.min(minX, p.x - p.radius - 200);
+                    minY = Math.min(minY, p.y - p.radius - 200);
+                    maxX = Math.max(maxX, p.x + p.radius + 200);
+                    maxY = Math.max(maxY, p.y + p.radius + 200);
+                }
+                levelMinX = minX;
+                levelMinY = minY;
+                levelWidth = maxX;
+                levelHeight = maxY;
+            } else {
+                levelMinX = 0;
+                levelMinY = 0;
+            }
+
             const startData = lvl.planets.find(p => p.hasStart);
             const startPlanet = planets[lvl.planets.indexOf(startData)];
 
@@ -829,8 +851,8 @@
             let margin = 45; // Accounts for flag height and target radius
             let attempts = 0;
 
-            // Adjust angle if target is outside screen boundaries
-            while ((tx < margin || tx > width - margin || ty < margin || ty > height - margin) && attempts < 64) {
+            // Adjust angle if target flag is outside level boundaries
+            while ((tx < levelMinX + margin || tx > levelWidth - margin || ty < levelMinY + margin || ty > levelHeight - margin) && attempts < 64) {
                 tAngle += 0.1;
                 tx = targetPlanet.x + Math.cos(tAngle) * (targetPlanet.radius);
                 ty = targetPlanet.y + Math.sin(tAngle) * (targetPlanet.radius);
@@ -1175,10 +1197,10 @@
 
             // Bounds
             if (boundsEnabled) {
-                if (ball.x < ball.radius) { ball.x = ball.radius; ball.vx *= -BOUNCE_DAMPING; }
+                if (ball.x < levelMinX + ball.radius) { ball.x = levelMinX + ball.radius; ball.vx *= -BOUNCE_DAMPING; }
                 if (ball.x > levelWidth - ball.radius) { ball.x = levelWidth - ball.radius; ball.vx *= -BOUNCE_DAMPING; }
                 
-                if (ball.y < ball.radius) { ball.y = ball.radius; ball.vy *= -BOUNCE_DAMPING; }
+                if (ball.y < levelMinY + ball.radius) { ball.y = levelMinY + ball.radius; ball.vy *= -BOUNCE_DAMPING; }
                 if (ball.y > levelHeight - ball.radius) { ball.y = levelHeight - ball.radius; ball.vy *= -BOUNCE_DAMPING; }
             }
 
