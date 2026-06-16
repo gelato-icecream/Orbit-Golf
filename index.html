@@ -230,9 +230,9 @@
         </div>
     </div>
 
-    <!-- Hidden Cheat Area (top right corner) -->
+    <!-- Hidden Cheat Area (bottom right corner) -->
     <div onclick="unlockAllLevelsCheat()"
-        style="position: absolute; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; cursor: default;"></div>
+        style="position: absolute; bottom: 0; right: 0; width: 50px; height: 50px; z-index: 100; cursor: default;"></div>
 
     <canvas id="game"></canvas>
 
@@ -1078,7 +1078,7 @@
                 // Update world coordinates so aim line stretches dynamically
                 dragCurrX = dragScreenX + camera.x;
                 dragCurrY = dragScreenY + camera.y;
-            } else {
+            } else if (!isEditing) {
                 // Camera follow (always runs to ensure smooth lerping when not aiming)
                 camera.x += (ball.x - width / 2 - camera.x) * 0.1;
                 camera.y += (ball.y - height / 2 - camera.y) * 0.1;
