@@ -283,6 +283,9 @@
         let levelWidth = 0;
         let endlessScore = 0;
 
+        const CHUNK_SIZE = 1000;
+        let generatedChunks = new Set();
+
         const levelData = [
             {
                 planets: [
@@ -682,6 +685,7 @@
                 boundsEnabled = false;
                 endlessScore = 0;
                 shots = 0;
+                generatedChunks.clear();
                 
                 // Initialize endless mode
                 planets = [];
@@ -696,7 +700,8 @@
                     mass: 600,
                     color: '#3A86FF',
                     hasStart: true,
-                    startAngle: -Math.PI / 2
+                    startAngle: -Math.PI / 2,
+                    chunkKey: `${Math.floor(startX / CHUNK_SIZE)},${Math.floor(startY / CHUNK_SIZE)}`
                 });
                 
                 ball.x = startX + Math.cos(-Math.PI / 2) * (startRadius + ball.radius + 1);
@@ -710,7 +715,8 @@
                 camera.x = ball.x - width / 2;
                 camera.y = ball.y - height / 2;
                 
-                generateEndlessChunk(startX + 300);
+                spawnEndlessTarget(startX, startY);
+                checkAndGenerateChunks(ball.x, ball.y);
                 
                 updateUI();
                 instructionEl.style.opacity = '1';
@@ -809,33 +815,25 @@
             }
         };
 
-        function generateEndlessChunk(startX) {
-            let numObstacles = Math.floor(rng() * 3) + 1; // 1 to 3 obstacles
+        function spawnEndlessTarget(baseX, baseY) {
+            let targetRadius = 45 + Math.random() * 30;
+            // Spawn somewhere ahead or randomly in a radius
+            let angle = Math.random() * Math.PI * 2;
+            let dist = 1500 + Math.random() * 1000;
             
-            for (let j = 0; j < numObstacles; j++) {
-                planets.push({
-                    x: startX + 200 + rng() * 400,
-                    y: height * 0.1 + rng() * height * 0.8,
-                    radius: 30 + rng() * 40,
-                    gravityRadius: 200 + rng() * 150,
-                    mass: 300 + rng() * 400,
-                    color: planetColors[Math.floor(rng() * planetColors.length)]
-                });
-            }
+            let targetX = baseX + Math.cos(angle) * dist;
+            let targetY = baseY + Math.sin(angle) * dist;
 
-            // Generate next target
-            let targetRadius = 45 + rng() * 30;
-            let targetX = startX + 800 + rng() * 400;
-            let targetY = height * 0.1 + rng() * height * 0.8;
             let targetPlanet = {
                 x: targetX,
                 y: targetY,
                 radius: targetRadius,
-                gravityRadius: 300 + rng() * 150,
-                mass: 500 + rng() * 400,
-                color: planetColors[Math.floor(rng() * planetColors.length)],
+                gravityRadius: 300 + Math.random() * 150,
+                mass: 500 + Math.random() * 400,
+                color: planetColors[Math.floor(Math.random() * planetColors.length)],
                 hasTarget: true,
-                targetAngle: rng() * Math.PI * 2
+                targetAngle: Math.random() * Math.PI * 2,
+                chunkKey: `${Math.floor(targetX / CHUNK_SIZE)},${Math.floor(targetY / CHUNK_SIZE)}`
             };
             planets.push(targetPlanet);
 
@@ -845,6 +843,43 @@
             target.angle = tAngle;
             target.radius = 15;
             target.activePlanet = targetPlanet;
+        }
+
+        function checkAndGenerateChunks(x, y) {
+            const cx = Math.floor(x / CHUNK_SIZE);
+            const cy = Math.floor(y / CHUNK_SIZE);
+
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    const chunkKey = `${cx + i},${cy + j}`;
+                    if (!generatedChunks.has(chunkKey)) {
+                        generatedChunks.add(chunkKey);
+                        generatePlanetsForChunk(cx + i, cy + j);
+                    }
+                }
+            }
+        }
+
+        function generatePlanetsForChunk(cx, cy) {
+            // Avoid spawning obstacles right at the start chunk to give player breathing room initially
+            if (cx === 0 && cy === 0 && gameMode === 'endless') return;
+
+            let numObstacles = Math.floor(Math.random() * 3) + 1; // 1 to 3 obstacles per chunk
+            
+            for (let j = 0; j < numObstacles; j++) {
+                let px = cx * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+                let py = cy * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+                
+                planets.push({
+                    x: px,
+                    y: py,
+                    radius: 30 + Math.random() * 40,
+                    gravityRadius: 200 + Math.random() * 150,
+                    mass: 300 + Math.random() * 400,
+                    color: planetColors[Math.floor(Math.random() * planetColors.length)],
+                    chunkKey: `${cx},${cy}`
+                });
+            }
         }
 
         function handleDown(x, y) {
@@ -981,6 +1016,33 @@
                  // No hard bounds on camera for custom levels with bounds, just follow ball
             }
 
+            if (gameMode === 'endless') {
+                checkAndGenerateChunks(ball.x, ball.y);
+
+                // Despawn target if > 4000 units away
+                if (target.activePlanet && Math.hypot(target.activePlanet.x - ball.x, target.activePlanet.y - ball.y) > 4000) {
+                    let oldIdx = planets.indexOf(target.activePlanet);
+                    if (oldIdx !== -1) planets.splice(oldIdx, 1);
+                    // Spawn new target ahead of ball's general direction
+                    let vDirX = ball.vx ? ball.vx : 1;
+                    let vDirY = ball.vy ? ball.vy : 0;
+                    // Normalize
+                    let vLen = Math.hypot(vDirX, vDirY);
+                    vDirX /= vLen; vDirY /= vLen;
+                    spawnEndlessTarget(ball.x + vDirX * 1000, ball.y + vDirY * 1000);
+                }
+
+                // Garbage Collection
+                planets = planets.filter(p => {
+                    if (p.hasTarget) return true;
+                    if (Math.hypot(p.x - ball.x, p.y - ball.y) > 3000) {
+                        if (p.chunkKey) generatedChunks.delete(p.chunkKey);
+                        return false;
+                    }
+                    return true;
+                });
+            }
+
             if (!ball.isMoving) return;
 
             // Add to trail
@@ -1073,12 +1135,13 @@
                     instructionEl.textContent = "Great Shot!";
                     instructionEl.style.opacity = '1';
                     
-                    // The old target becomes a new start point of sorts, but ball stays where it is.
-                    // We remove planets that are far behind to save memory
-                    planets = planets.filter(p => p.x > ball.x - width * 1.5);
+                    // The old target becomes a normal planet
+                    if (target.activePlanet) {
+                        delete target.activePlanet.hasTarget;
+                    }
                     
-                    // Generate new chunk starting from the current target
-                    generateEndlessChunk(target.activePlanet.x);
+                    // Spawn new target
+                    spawnEndlessTarget(ball.x, ball.y);
                     
                     setTimeout(() => {
                         instructionEl.textContent = "Take your next shot!";
