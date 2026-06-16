@@ -1070,6 +1070,11 @@
                 if (dragScreenY < edgeMargin) camera.y -= panSpeed;
                 if (dragScreenY > height - edgeMargin) camera.y += panSpeed;
                 
+                // Clamp camera so the ball never goes off-screen while panning
+                let ballScreenPadding = ball.radius + 15;
+                camera.x = Math.max(ball.x - width + ballScreenPadding, Math.min(camera.x, ball.x - ballScreenPadding));
+                camera.y = Math.max(ball.y - height + ballScreenPadding, Math.min(camera.y, ball.y - ballScreenPadding));
+                
                 // Update world coordinates so aim line stretches dynamically
                 dragCurrX = dragScreenX + camera.x;
                 dragCurrY = dragScreenY + camera.y;
