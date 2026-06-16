@@ -153,6 +153,7 @@
                     <option value="obstacle">Obstacle</option>
                     <option value="start">Start Planet</option>
                     <option value="target">Target Planet</option>
+                    <option value="delete" style="color: #ff3366;">Delete Planet</option>
                 </select>
 
                 <label style="font-size: 12px;">Radius: <span id="edit-radius-val">50</span></label>
@@ -217,6 +218,17 @@
     </div>
 
     <div id="instruction">Click and drag backwards relative to the ball to aim & shoot</div>
+
+    <div id="editor-controls" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center;">
+        <div style="display: flex; justify-content: center;">
+            <button onclick="scrollEditor(0, -300)" style="width: 60px; height: 50px; font-size: 20px; padding: 0; margin: 2px; background: rgba(22, 27, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);">↑</button>
+        </div>
+        <div style="display: flex; justify-content: center;">
+            <button onclick="scrollEditor(-300, 0)" style="width: 60px; height: 50px; font-size: 20px; padding: 0; margin: 2px; background: rgba(22, 27, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);">←</button>
+            <button onclick="scrollEditor(0, 300)" style="width: 60px; height: 50px; font-size: 20px; padding: 0; margin: 2px; background: rgba(22, 27, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);">↓</button>
+            <button onclick="scrollEditor(300, 0)" style="width: 60px; height: 50px; font-size: 20px; padding: 0; margin: 2px; background: rgba(22, 27, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);">→</button>
+        </div>
+    </div>
 
     <!-- Hidden Cheat Area (top right corner) -->
     <div onclick="unlockAllLevelsCheat()"
@@ -590,15 +602,22 @@
             target.x = -1000;
             document.getElementById('editor-panel').style.display = 'block';
             document.getElementById('panel-content').style.display = 'none';
-            document.getElementById('instruction').textContent = "Click canvas to place planets. Set settings in Level Maker panel.";
+            document.getElementById('editor-controls').style.display = 'block';
+            document.getElementById('instruction').textContent = "Click canvas to place. Set settings in Level Maker panel.";
         }
 
         function exitEditor() {
             isEditing = false;
             document.getElementById('editor-panel').style.display = 'none';
             document.getElementById('panel-content').style.display = 'block';
+            document.getElementById('editor-controls').style.display = 'none';
             document.getElementById('instruction').textContent = "Click and drag backwards relative to the ball to aim & shoot";
             initLevel(currentLevel);
+        }
+
+        function scrollEditor(dx, dy) {
+            camera.x += dx;
+            camera.y += dy;
         }
 
         function clearEditPlanets() {
@@ -640,6 +659,28 @@
                 mass: mass,
                 color: col
             };
+
+            if (type === 'delete') {
+                let clickedIndex = editPlanets.findIndex(p => {
+                    let px = width * p.x;
+                    let py = height * p.y;
+                    return Math.hypot(px - clickX, py - clickY) <= p.radius;
+                });
+                if (clickedIndex !== -1) {
+                    let deleted = editPlanets.splice(clickedIndex, 1)[0];
+                    if (deleted.hasStart) { ball.x = -1000; ball.y = -1000; }
+                    if (deleted.hasTarget) { target.x = -1000; target.y = -1000; }
+                    planets = editPlanets.map(p => ({
+                        x: width * p.x,
+                        y: height * p.y,
+                        radius: p.radius,
+                        gravityRadius: p.gravityRadius,
+                        mass: p.mass,
+                        color: p.color
+                    }));
+                }
+                return;
+            }
 
             if (type === 'start') {
                 editPlanets.forEach(p => delete p.hasStart);
