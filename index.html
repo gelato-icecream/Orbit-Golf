@@ -273,6 +273,7 @@
         let isDragging = false;
         let dragStartX = 0, dragStartY = 0;
         let dragCurrX = 0, dragCurrY = 0;
+        let dragScreenX = 0, dragScreenY = 0;
 
         let isEditing = false;
         let editPlanets = [];
@@ -281,6 +282,7 @@
         let gameMode = 'campaign'; // 'campaign', 'custom', 'endless'
         let boundsEnabled = true;
         let levelWidth = 0;
+        let levelHeight = 0;
         let endlessScore = 0;
 
         const CHUNK_SIZE = 1000;
@@ -743,11 +745,22 @@
             }
 
             boundsEnabled = lvl.boundsEnabled !== false; // Default to true if undefined
-            levelWidth = width;
+            
+            let layoutWidth = width;
+            let layoutHeight = height;
+            
+            // Prevent campaign levels from being squished on small screens
+            if (gameMode === 'campaign') {
+                layoutWidth = Math.max(width, 1500);
+                layoutHeight = Math.max(height, 800);
+            }
+            
+            levelWidth = layoutWidth;
+            levelHeight = layoutHeight;
 
             planets = lvl.planets.map(p => ({
-                x: width * p.x,
-                y: height * p.y,
+                x: layoutWidth * p.x,
+                y: layoutHeight * p.y,
                 radius: p.radius,
                 gravityRadius: p.gravityRadius,
                 mass: p.mass,
@@ -899,6 +912,8 @@
                 isDragging = true;
                 dragStartX = ball.x;
                 dragStartY = ball.y;
+                dragScreenX = x;
+                dragScreenY = y;
                 dragCurrX = worldX;
                 dragCurrY = worldY;
             }
@@ -906,6 +921,8 @@
 
         function handleMove(x, y) {
             if (isDragging) {
+                dragScreenX = x;
+                dragScreenY = y;
                 dragCurrX = x + camera.x;
                 dragCurrY = y + camera.y;
             }
@@ -1005,13 +1022,27 @@
         });
 
         function update() {
-            // Camera follow (always runs to ensure smooth lerping)
-            camera.x += (ball.x - width / 2 - camera.x) * 0.1;
-            camera.y += (ball.y - height / 2 - camera.y) * 0.1;
+            if (isDragging) {
+                // Panning logic when aiming near the edge
+                let edgeMargin = 50;
+                let panSpeed = 15;
+                if (dragScreenX < edgeMargin) camera.x -= panSpeed;
+                if (dragScreenX > width - edgeMargin) camera.x += panSpeed;
+                if (dragScreenY < edgeMargin) camera.y -= panSpeed;
+                if (dragScreenY > height - edgeMargin) camera.y += panSpeed;
+                
+                // Update world coordinates so aim line stretches dynamically
+                dragCurrX = dragScreenX + camera.x;
+                dragCurrY = dragScreenY + camera.y;
+            } else {
+                // Camera follow (always runs to ensure smooth lerping when not aiming)
+                camera.x += (ball.x - width / 2 - camera.x) * 0.1;
+                camera.y += (ball.y - height / 2 - camera.y) * 0.1;
+            }
 
             if (boundsEnabled && gameMode === 'campaign') {
-                camera.x = Math.max(0, Math.min(camera.x, levelWidth - width));
-                camera.y = Math.max(0, Math.min(camera.y, height - height)); // y doesn't scroll in standard campaign
+                camera.x = Math.max(0, Math.min(camera.x, Math.max(levelWidth, 1500) - width));
+                camera.y = Math.max(0, Math.min(camera.y, Math.max(levelHeight, 800) - height));
             } else if (boundsEnabled && gameMode === 'custom') {
                  // No hard bounds on camera for custom levels with bounds, just follow ball
             }
@@ -1108,10 +1139,10 @@
             // Bounds
             if (boundsEnabled) {
                 if (ball.x < ball.radius) { ball.x = ball.radius; ball.vx *= -BOUNCE_DAMPING; }
-                if (gameMode === 'campaign' && ball.x > levelWidth - ball.radius) { ball.x = levelWidth - ball.radius; ball.vx *= -BOUNCE_DAMPING; }
+                if (ball.x > levelWidth - ball.radius) { ball.x = levelWidth - ball.radius; ball.vx *= -BOUNCE_DAMPING; }
                 
                 if (ball.y < ball.radius) { ball.y = ball.radius; ball.vy *= -BOUNCE_DAMPING; }
-                else if (ball.y > height - ball.radius) { ball.y = height - ball.radius; ball.vy *= -BOUNCE_DAMPING; }
+                if (ball.y > levelHeight - ball.radius) { ball.y = levelHeight - ball.radius; ball.vy *= -BOUNCE_DAMPING; }
             }
 
             // Stop when very slow
