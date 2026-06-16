@@ -28,8 +28,6 @@
 
         canvas {
             display: block;
-            width: 100vw;
-            height: 100vh;
         }
 
         #ui-container {
@@ -1038,13 +1036,6 @@
                 // Camera follow (always runs to ensure smooth lerping when not aiming)
                 camera.x += (ball.x - width / 2 - camera.x) * 0.1;
                 camera.y += (ball.y - height / 2 - camera.y) * 0.1;
-            }
-
-            if (boundsEnabled && gameMode === 'campaign') {
-                camera.x = Math.max(0, Math.min(camera.x, Math.max(levelWidth, 1500) - width));
-                camera.y = Math.max(0, Math.min(camera.y, Math.max(levelHeight, 800) - height));
-            } else if (boundsEnabled && gameMode === 'custom') {
-                 // No hard bounds on camera for custom levels with bounds, just follow ball
             }
 
             if (gameMode === 'endless') {
