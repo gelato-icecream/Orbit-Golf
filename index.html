@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Orbit Golf</title>
+    <style>
+        :root {
+            --primary: #4ecca3;
+            --bg-color: #0d1117;
+            --text-color: #e6edf3;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .panel {
+            background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: var(--primary);
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #8b949e;
+        }
+
+        .stat {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        button {
+            background: linear-gradient(135deg, #238636, #2ea043);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #2ea043, #3fb950);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(46, 160, 67, 0.4);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        #instruction {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Mobile specific styles */
+        @media (max-width: 600px) {
+            .panel {
+                padding: 10px 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            button {
+                padding: 12px 20px; /* Larger touch targets */
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-container">
+        <div class="panel" id="main-panel">
+            <div id="ui-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: grab; user-select: none;">
+                <h1 style="margin: 0;">Orbit Golf</h1>
+                <button onclick="togglePanel()" id="minimize-btn"
+                    style="width: auto; margin: 0; padding: 4px 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 16px;">-</button>
+            </div>
+            <div id="panel-content">
+                <p>Score: <span id="shots-counter" class="stat">0</span></p>
+                <p>Level: <span id="level-counter" class="stat">1</span></p>
+                <button onclick="restartLevel()">Restart Level</button>
+                <button onclick="openLevelSelect()"
+                    style="margin-top: 10px; background: linear-gradient(135deg, #1f6feb, #388bfd);">Menu</button>
+                <button onclick="openEditor()"
+                    style="margin-top: 10px; background: linear-gradient(135deg, #8a2be2, #9932cc);">Level Maker</button>
+            </div>
+
+            <div id="editor-panel" style="display: none;">
+                <h2 style="margin: 0 0 10px 0; font-size: 18px; color: #fff;">Level Maker</h2>
+                <label style="font-size: 12px;">Planet Type:</label>
+                <select id="edit-type"
+                    style="width: 100%; margin-bottom: 10px; background: #222; color: #fff; padding: 5px; border: 1px solid #444; border-radius: 4px;">
+                    <option value="obstacle">Obstacle</option>
+                    <option value="start">Start Planet</option>
+                    <option value="target">Target Planet</option>
+                </select>
+
+                <label style="font-size: 12px;">Radius: <span id="edit-radius-val">50</span></label>
+                <input type="range" id="edit-radius" min="20" max="150" value="50"
+                    style="width: 100%; margin-bottom: 10px;"
+                    oninput="document.getElementById('edit-radius-val').textContent=this.value">
+
+                <label style="font-size: 12px;">Gravity Area: <span id="edit-gravity-val">300</span></label>
+                <input type="range" id="edit-gravity" min="100" max="600" value="300"
+                    style="width: 100%; margin-bottom: 10px;"
+                    oninput="document.getElementById('edit-gravity-val').textContent=this.value">
+
+                <label style="font-size: 12px;">Mass: <span id="edit-mass-val">500</span></label>
+                <input type="range" id="edit-mass" min="100" max="1000" value="500"
+                    style="width: 100%; margin-bottom: 10px;"
+                    oninput="document.getElementById('edit-mass-val').textContent=this.value">
+
+                <label style="font-size: 12px;">Color:</label>
+                <input type="color" id="edit-color" value="#06D6A0"
+                    style="width: 100%; border: none; padding: 0; height: 30px; margin-bottom: 10px;">
+
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <input type="checkbox" id="edit-bounds" checked style="margin-right: 5px;">
+                    <label style="font-size: 12px; color: #fff;">Enable Level Borders</label>
+                </div>
+
+                <hr style="border-color: #333;">
+                <button onclick="clearEditPlanets()" style="background: #444; margin-top: 5px;">Clear Canvas</button>
+                <button onclick="saveCustomLevel()" style="background: linear-gradient(135deg, #2ea043, #3fb950);">Save
+                    Level</button>
+                <button onclick="exitEditor()"
+                    style="background: linear-gradient(135deg, #d73a49, #cb2431);">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="level-select-overlay"
+        style="display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 20; justify-content: center; align-items: center; pointer-events: auto;">
+        <div class="panel"
+            style="width: 500px; max-width: 90%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h1 style="margin: 0;">Menu</h1>
+                <div style="display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px;">
+                    <button id="tab-campaign" onclick="switchTab('campaign')"
+                        style="margin: 0; padding: 5px 10px; white-space: nowrap;">Campaign</button>
+                    <button id="tab-endless" onclick="switchTab('endless')"
+                        style="margin: 0; padding: 5px 10px; background: #444; white-space: nowrap;">Endless</button>
+                    <button id="tab-custom" onclick="switchTab('custom')"
+                        style="margin: 0; padding: 5px 10px; background: #444; white-space: nowrap;">My Levels</button>
+                </div>
+            </div>
+            <div id="level-buttons"
+                style="display: flex; flex-wrap: wrap; gap: 10px; overflow-y: auto; padding-right: 5px; flex-grow: 1; align-content: flex-start;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="closeLevelSelect()" style="margin-top: 0; background: #444;">Close</button>
+                <button onclick="resetProgress()"
+                    style="margin-top: 0; background: linear-gradient(135deg, #d73a49, #cb2431);">Reset
+                    Progress</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="instruction">Click and drag backwards relative to the ball to aim & shoot</div>
+
+    <!-- Hidden Cheat Area (top right corner) -->
+    <div onclick="unlockAllLevelsCheat()"
+        style="position: absolute; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; cursor: default;"></div>
+
+    <canvas id="game"></canvas>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            generateStars();
+        }
+        window.addEventListener('resize', resize);
+
+        const shotsEl = document.getElementById('shots-counter');
+        const levelEl = document.getElementById('level-counter');
+        const instructionEl = document.getElementById('instruction');
+
+        const G = 0.5;
+        const FRICTION = 0.992;
+        const BOUNCE_DAMPING = 0.6;
+        const LAUNCH_MULTIPLIER = 0.08;
+        const MAX_TRAIL_LENGTH = 50;
+
+        let stars = [];
+        let ball = { x: 0, y: 0, vx: 0, vy: 0, radius: 5, isMoving: false, trail: [], bounces: 0 };
+        let planets = [];
+        let target = { x: 0, y: 0, radius: 15 };
+        let shots = 0;
+        let currentLevelRaw = localStorage.getItem('orbitGolfCurrentLevel');
+        let currentLevel = 0;
+        if (currentLevelRaw) {
+            if (currentLevelRaw.startsWith('custom_')) {
+                currentLevel = currentLevelRaw;
+            } else {
+                currentLevel = parseInt(currentLevelRaw) || 0;
+                if (currentLevel >= 35) {
+                    currentLevel = `custom_${currentLevel - 35}`;
+                }
+            }
+        }
+        let maxLevelUnlocked = parseInt(localStorage.getItem('orbitGolfMaxLevel')) || 0;
+        if (maxLevelUnlocked > 34) maxLevelUnlocked = 34;
+
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let dragCurrX = 0, dragCurrY = 0;
+
+        let isEditing = false;
+        let editPlanets = [];
+
+        let camera = { x: 0, y: 0 };
+        let gameMode = 'campaign'; // 'campaign', 'custom', 'endless'
+        let boundsEnabled = true;
+        let levelWidth = 0;
+        let endlessScore = 0;
+
+        const levelData = [
+            {
+                planets: [
+                    { x: 0.2, y: 0.5, radius: 55, gravityRadius: 350, mass: 600, color: '#3A86FF', hasStart: true, startAngle: -Math.PI / 2 },
+                    { x: 0.8, y: 0.5, radius: 75, gravityRadius: 400, mass: 800, color: '#FF006E', hasTarget: true, targetAngle: -Math.PI / 2 }
+                ]
+            },
+            {
+                planets: [
+                    { x: 0.15, y: 0.8, radius: 60, gravityRadius: 350, mass: 600, color: '#FFBE0B', hasStart: true, startAngle: Math.PI + Math.PI / 4 },
+                    { x: 0.5, y: 0.5, radius: 50, gravityRadius: 300, mass: 500, color: '#8338EC' },
+                    { x: 0.85, y: 0.2, radius: 55, gravityRadius: 300, mass: 550, color: '#FB5607', hasTarget: true, targetAngle: -Math.PI / 2 }
+                ]
+            },
+            {
+                planets: [
+                    { x: 0.1, y: 0.5, radius: 45, gravityRadius: 250, mass: 450, color: '#06D6A0', hasStart: true, startAngle: 0 },
+                    { x: 0.4, y: 0.2, radius: 60, gravityRadius: 350, mass: 600, color: '#118AB2' },
+                    { x: 0.6, y: 0.8, radius: 75, gravityRadius: 400, mass: 750, color: '#EF476F' },
+                    { x: 0.9, y: 0.5, radius: 50, gravityRadius: 300, mass: 500, color: '#FFD166', hasTarget: true, targetAngle: Math.PI }
+                ]
+            },
+            {
+                planets: [
+                    { x: 0.2, y: 0.3, radius: 50, gravityRadius: 300, mass: 500, color: '#4CC9F0', hasStart: true, startAngle: Math.PI },
+                    { x: 0.5, y: 0.7, radius: 90, gravityRadius: 500, mass: 900, color: '#F72585' },
+                    { x: 0.8, y: 0.3, radius: 40, gravityRadius: 250, mass: 400, color: '#7209B7', hasTarget: true, targetAngle: 0 }
+                ]
+            }
+        ];
+
+        // Deterministic RNG for generating consecutive additional levels
+        function seededRandom(seed) {
+            return function () {
+                seed = (seed * 16807) % 2147483647;
+                return (seed - 1) / 2147483646;
+            };
+        }
+        const rng = seededRandom(101); // Fixed seed to ensure levels 5 to 35 are identical every time
+
+        const planetColors = ['#3A86FF', '#FF006E', '#FFBE0B', '#8338EC', '#FB5607', '#06D6A0', '#118AB2', '#EF476F', '#FFD166', '#4CC9F0', '#F72585', '#7209B7'];
+
+        // Automatically create 31 more handcrafted levels (total of 35 levels)
+        for (let i = levelData.length; i < 35; i++) {
+            let numObstacles = Math.min(1 + Math.floor((i - 3) / 4), 6);
+            let planets = [];
+
+            // Random start planet cleanly on the left
+            planets.push({
+                x: 0.1 + rng() * 0.15,
+                y: 0.1 + rng() * 0.8,
+                radius: 40 + rng() * 20,
+                gravityRadius: 250 + rng() * 100,
+                mass: 400 + rng() * 300,
+                color: planetColors[Math.floor(rng() * planetColors.length)],
+                hasStart: true,
+                startAngle: rng() * Math.PI * 2
+            });
+
+            // Random target cleanly on the right
+            planets.push({
+                x: 0.75 + rng() * 0.15,
+                y: 0.1 + rng() * 0.8,
+                radius: 45 + rng() * 30,
+                gravityRadius: 300 + rng() * 150,
+                mass: 500 + rng() * 400,
+                color: planetColors[Math.floor(rng() * planetColors.length)],
+                hasTarget: true,
+                targetAngle: rng() * Math.PI * 2
+            });
+
+            // Fill gap with varying obstacles without overlapping issues
+            for (let j = 0; j < numObstacles; j++) {
+                let p;
+                let overlap = true;
+                let attempts = 0;
+                while (overlap && attempts < 25) {
+                    p = {
+                        x: 0.3 + rng() * 0.4,
+                        y: 0.15 + rng() * 0.7,
+                        radius: 30 + rng() * 40,
+                        gravityRadius: 200 + rng() * 150,
+                        mass: 300 + rng() * 400,
+                        color: planetColors[Math.floor(rng() * planetColors.length)]
+                    };
+                    overlap = false;
+                    for (let ep of planets) {
+                        if (Math.hypot(ep.x - p.x, ep.y - p.y) < 0.15) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+                planets.push(p);
+            }
+            levelData.push({ planets: planets });
+        }
+
+        let customLevels = [];
+        let lsCustoms = localStorage.getItem('orbitGolfCustomLevels');
+        if (lsCustoms) {
+            customLevels = JSON.parse(lsCustoms);
+        }
+
+        function generateStars() {
+            stars = [];
+            const numStars = Math.floor((width * height) / 2500);
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2 + 0.5,
+                    alpha: Math.random() * 0.8 + 0.2
+                });
+            }
+        }
+
+        let currentTab = 'campaign';
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-campaign').style.background = tab === 'campaign' ? 'linear-gradient(135deg, #238636, #2ea043)' : '#444';
+            document.getElementById('tab-endless').style.background = tab === 'endless' ? 'linear-gradient(135deg, #238636, #2ea043)' : '#444';
+            document.getElementById('tab-custom').style.background = tab === 'custom' ? 'linear-gradient(135deg, #238636, #2ea043)' : '#444';
+            populateLevels();
+        }
+
+        function populateLevels() {
+            const container = document.getElementById('level-buttons');
+            container.innerHTML = '';
+
+            if (currentTab === 'campaign') {
+                for (let i = 0; i < levelData.length; i++) {
+                    const btn = document.createElement('button');
+                    btn.textContent = `Level ${i + 1}`;
+                    btn.style.width = 'calc(33.33% - 7px)';
+                    btn.style.margin = '0';
+                    btn.style.padding = '8px 5px';
+
+                    if (i <= maxLevelUnlocked) {
+                        btn.onclick = () => {
+                            currentLevel = i;
+                            initLevel(currentLevel);
+                            closeLevelSelect();
+                        };
+                    } else {
+                        btn.style.background = '#444';
+                        btn.style.color = '#888';
+                        btn.style.cursor = 'not-allowed';
+                        btn.textContent += ' 🔒';
+                    }
+
+                    container.appendChild(btn);
+                }
+            } else if (currentTab === 'endless') {
+                const btn = document.createElement('button');
+                btn.textContent = `Play Endless Mode`;
+                btn.style.width = '100%';
+                btn.style.padding = '15px';
+                btn.onclick = () => {
+                    initLevel('endless');
+                    closeLevelSelect();
+                };
+                container.appendChild(btn);
+            } else {
+                if (customLevels.length === 0) {
+                    container.innerHTML = '<p style="width:100%; text-align:center; color:#888;">No custom levels found. Create one in Level Maker!</p>';
+                } else {
+                    for (let i = 0; i < customLevels.length; i++) {
+                        const wrapper = document.createElement('div');
+                        wrapper.style.display = 'flex';
+                        wrapper.style.width = '100%';
+                        wrapper.style.gap = '5px';
+
+                        const btn = document.createElement('button');
+                        btn.textContent = customLevels[i].name || `Custom ${i + 1}`;
+                        btn.style.flexGrow = '1';
+                        btn.style.margin = '0';
+                        btn.onclick = () => {
+                            currentLevel = `custom_${i}`;
+                            initLevel(currentLevel);
+                            closeLevelSelect();
+                        };
+
+                        const extArea = document.createElement('div');
+                        extArea.style.display = 'flex';
+                        extArea.style.gap = '5px';
+
+                        const renameBtn = document.createElement('button');
+                        renameBtn.textContent = '✏️';
+                        renameBtn.title = 'Rename';
+                        renameBtn.style.margin = '0';
+                        renameBtn.style.padding = '0 10px';
+                        renameBtn.style.background = '#1f6feb';
+                        renameBtn.onclick = () => {
+                            let newName = prompt("Enter new name for level:", customLevels[i].name || `Custom ${i + 1}`);
+                            if (newName !== null) {
+                                customLevels[i].name = newName.trim() || `Custom ${i + 1}`;
+                                localStorage.setItem('orbitGolfCustomLevels', JSON.stringify(customLevels));
+                                populateLevels();
+                                if (currentLevel === `custom_${i}`) updateUI();
+                            }
+                        };
+
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = '🗑️';
+                        deleteBtn.title = 'Delete';
+                        deleteBtn.style.margin = '0';
+                        deleteBtn.style.padding = '0 10px';
+                        deleteBtn.style.background = '#d73a49';
+                        deleteBtn.onclick = () => {
+                            if (confirm("Are you sure you want to delete this unique custom level?")) {
+                                customLevels.splice(i, 1);
+                                localStorage.setItem('orbitGolfCustomLevels', JSON.stringify(customLevels));
+                                if (currentLevel === `custom_${i}`) {
+                                    currentLevel = 0;
+                                    initLevel(currentLevel);
+                                } else if (typeof currentLevel === 'string' && currentLevel.startsWith('custom_')) {
+                                    let currI = parseInt(currentLevel.split('_')[1]);
+                                    if (currI > i) {
+                                        currentLevel = `custom_${currI - 1}`;
+                                        localStorage.setItem('orbitGolfCurrentLevel', currentLevel);
+                                        updateUI();
+                                    }
+                                }
+                                populateLevels();
+                            }
+                        };
+
+                        extArea.appendChild(renameBtn);
+                        extArea.appendChild(deleteBtn);
+
+                        wrapper.appendChild(btn);
+                        wrapper.appendChild(extArea);
+                        container.appendChild(wrapper);
+                    }
+                }
+            }
+        }
+
+        function openLevelSelect() {
+            populateLevels();
+            document.getElementById('level-select-overlay').style.display = 'flex';
+        }
+
+        function closeLevelSelect() {
+            document.getElementById('level-select-overlay').style.display = 'none';
+        }
+
+        function resetProgress() {
+            if (confirm("Are you sure you want to reset all your progress?")) {
+                localStorage.setItem('orbitGolfCurrentLevel', 0);
+                localStorage.setItem('orbitGolfMaxLevel', 0);
+                currentLevel = 0;
+                maxLevelUnlocked = 0;
+                initLevel(0);
+                closeLevelSelect();
+            }
+        }
+
+        // Hidden cheat function
+        function unlockAllLevelsCheat() {
+            maxLevelUnlocked = levelData.length - 1;
+            localStorage.setItem('orbitGolfMaxLevel', maxLevelUnlocked);
+
+            // Pop an alert just to let the player know it worked
+            alert("Cheat Activated: All Levels Unlocked!");
+
+            // If the level select happens to be open, refresh its buttons
+            if (document.getElementById('level-select-overlay').style.display === 'flex') {
+                openLevelSelect();
+            }
+        }
+
+        function togglePanel() {
+            const content = document.getElementById('panel-content');
+            const editor = document.getElementById('editor-panel');
+            const btn = document.getElementById('minimize-btn');
+
+            // if we are hiding panels...
+            if (content.style.display !== 'none' || editor.style.display !== 'none') {
+                content.style.display = 'none';
+                editor.style.display = 'none';
+                btn.textContent = '+';
+            } else {
+                // Determine which view to restore 
+                if (isEditing) {
+                    editor.style.display = 'block';
+                } else {
+                    content.style.display = 'block';
+                }
+                btn.textContent = '-';
+            }
+        }
+
+        // Editor Functions
+        function openEditor() {
+            isEditing = true;
+            editPlanets = [];
+            planets = [];
+            ball.x = -1000;
+            target.x = -1000;
+            document.getElementById('editor-panel').style.display = 'block';
+            document.getElementById('panel-content').style.display = 'none';
+            document.getElementById('instruction').textContent = "Click canvas to place planets. Set settings in Level Maker panel.";
+        }
+
+        function exitEditor() {
+            isEditing = false;
+            document.getElementById('editor-panel').style.display = 'none';
+            document.getElementById('panel-content').style.display = 'block';
+            document.getElementById('instruction').textContent = "Click and drag backwards relative to the ball to aim & shoot";
+            initLevel(currentLevel);
+        }
+
+        function clearEditPlanets() {
+            editPlanets = [];
+            planets = [];
+            ball.x = -1000;
+            target.x = -1000;
+        }
+
+        function saveCustomLevel() {
+            if (!editPlanets.some(p => p.hasStart) || !editPlanets.some(p => p.hasTarget)) {
+                alert("You must place both a Start Planet and a Target Planet.");
+                return;
+            }
+
+            let newLevel = { planets: JSON.parse(JSON.stringify(editPlanets)), name: `Custom ${customLevels.length + 1}`, boundsEnabled: document.getElementById('edit-bounds').checked };
+            customLevels.push(newLevel);
+            localStorage.setItem('orbitGolfCustomLevels', JSON.stringify(customLevels));
+
+            alert(`Custom level saved!`);
+            exitEditor();
+
+            currentLevel = `custom_${customLevels.length - 1}`;
+            initLevel(currentLevel);
+        }
+
+        function addEditPlanet(clickX, clickY) {
+            const type = document.getElementById('edit-type').value;
+            const rad = parseInt(document.getElementById('edit-radius').value);
+            const grad = parseInt(document.getElementById('edit-gravity').value);
+            const mass = parseInt(document.getElementById('edit-mass').value);
+            const col = document.getElementById('edit-color').value;
+
+            let pData = {
+                x: clickX / width,
+                y: clickY / height,
+                radius: rad,
+                gravityRadius: grad,
+                mass: mass,
+                color: col
+            };
+
+            if (type === 'start') {
+                editPlanets.forEach(p => delete p.hasStart);
+                pData.hasStart = true;
+                pData.startAngle = -Math.PI / 2;
+            } else if (type === 'target') {
+                editPlanets.forEach(p => delete p.hasTarget);
+                pData.hasTarget = true;
+                pData.targetAngle = -Math.PI / 2;
+            }
+
+            editPlanets.push(pData);
+
+            planets = editPlanets.map(p => ({
+                x: width * p.x,
+                y: height * p.y,
+                radius: p.radius,
+                gravityRadius: p.gravityRadius,
+                mass: p.mass,
+                color: p.color
+            }));
+
+            if (type === 'start') {
+                ball.x = clickX + Math.cos(-Math.PI / 2) * (rad + ball.radius + 1);
+                ball.y = clickY + Math.sin(-Math.PI / 2) * (rad + ball.radius + 1);
+                ball.vx = 0; ball.vy = 0; ball.trail = []; ball.bounces = 0; ball.isMoving = false;
+                camera.x = ball.x - width / 2;
+                camera.y = ball.y - height / 2;
+            }
+            if (type === 'target') {
+                target.x = clickX + Math.cos(-Math.PI / 2) * rad;
+                target.y = clickY + Math.sin(-Math.PI / 2) * rad;
+                target.angle = -Math.PI / 2;
+            }
+        }
+
+        function initLevel(indexOrId) {
+            localStorage.setItem('orbitGolfCurrentLevel', indexOrId);
+            currentLevel = indexOrId;
+            let lvl;
+            if (indexOrId === 'endless') {
+                gameMode = 'endless';
+                boundsEnabled = false;
+                endlessScore = 0;
+                shots = 0;
+                
+                // Initialize endless mode
+                planets = [];
+                let startRadius = 60;
+                let startX = 100;
+                let startY = height / 2;
+                planets.push({
+                    x: startX,
+                    y: startY,
+                    radius: startRadius,
+                    gravityRadius: 350,
+                    mass: 600,
+                    color: '#3A86FF',
+                    hasStart: true,
+                    startAngle: -Math.PI / 2
+                });
+                
+                ball.x = startX + Math.cos(-Math.PI / 2) * (startRadius + ball.radius + 1);
+                ball.y = startY + Math.sin(-Math.PI / 2) * (startRadius + ball.radius + 1);
+                ball.vx = 0;
+                ball.vy = 0;
+                ball.isMoving = false;
+                ball.trail = [];
+                ball.bounces = 0;
+                
+                camera.x = ball.x - width / 2;
+                camera.y = ball.y - height / 2;
+                
+                generateEndlessChunk(startX + 300);
+                
+                updateUI();
+                instructionEl.style.opacity = '1';
+                return;
+            } else if (typeof indexOrId === 'string' && indexOrId.startsWith('custom_')) {
+                gameMode = 'custom';
+                let idx = parseInt(indexOrId.split('_')[1]);
+                if (idx < customLevels.length) {
+                    lvl = customLevels[idx];
+                } else {
+                    currentLevel = 0;
+                    localStorage.setItem('orbitGolfCurrentLevel', 0);
+                    lvl = levelData[0];
+                }
+            } else {
+                let index = parseInt(indexOrId);
+                if (index >= levelData.length) {
+                    alert("Congratulations, you completed all levels! Restarting game...");
+                    index = 0;
+                    currentLevel = 0;
+                    localStorage.setItem('orbitGolfCurrentLevel', 0);
+                }
+                lvl = levelData[index];
+            }
+
+            boundsEnabled = lvl.boundsEnabled !== false; // Default to true if undefined
+            levelWidth = width;
+
+            planets = lvl.planets.map(p => ({
+                x: width * p.x,
+                y: height * p.y,
+                radius: p.radius,
+                gravityRadius: p.gravityRadius,
+                mass: p.mass,
+                color: p.color
+            }));
+
+            const startData = lvl.planets.find(p => p.hasStart);
+            const startPlanet = planets[lvl.planets.indexOf(startData)];
+
+            ball.x = startPlanet.x + Math.cos(startData.startAngle) * (startPlanet.radius + ball.radius + 1);
+            ball.y = startPlanet.y + Math.sin(startData.startAngle) * (startPlanet.radius + ball.radius + 1);
+            ball.vx = 0;
+            ball.vy = 0;
+            ball.isMoving = false;
+            ball.trail = [];
+            ball.bounces = 0;
+
+            camera.x = ball.x - width / 2;
+            camera.y = ball.y - height / 2;
+
+            const targetData = lvl.planets.find(p => p.hasTarget);
+            const targetPlanet = planets[lvl.planets.indexOf(targetData)];
+
+            let tAngle = targetData.targetAngle;
+            let tx = targetPlanet.x + Math.cos(tAngle) * (targetPlanet.radius);
+            let ty = targetPlanet.y + Math.sin(tAngle) * (targetPlanet.radius);
+            let margin = 45; // Accounts for flag height and target radius
+            let attempts = 0;
+
+            // Adjust angle if target is outside screen boundaries
+            while ((tx < margin || tx > width - margin || ty < margin || ty > height - margin) && attempts < 64) {
+                tAngle += 0.1;
+                tx = targetPlanet.x + Math.cos(tAngle) * (targetPlanet.radius);
+                ty = targetPlanet.y + Math.sin(tAngle) * (targetPlanet.radius);
+                attempts++;
+            }
+
+            target.x = tx;
+            target.y = ty;
+            target.angle = tAngle;
+
+            shots = 0;
+            updateUI();
+            instructionEl.style.opacity = '1';
+        }
+
+        function updateUI() {
+            shotsEl.textContent = gameMode === 'endless' ? endlessScore : shots;
+            if (gameMode === 'endless') {
+                levelEl.textContent = 'Endless';
+            } else if (typeof currentLevel === 'string' && currentLevel.startsWith('custom_')) {
+                let idx = parseInt(currentLevel.split('_')[1]);
+                let cl = customLevels[idx];
+                levelEl.textContent = cl ? (cl.name || `Custom ${idx + 1}`) : `Custom`;
+            } else {
+                levelEl.textContent = currentLevel + 1;
+            }
+        }
+
+        window.restartLevel = function () {
+            if (gameMode === 'endless') {
+                initLevel('endless');
+            } else {
+                initLevel(currentLevel);
+            }
+        };
+
+        function generateEndlessChunk(startX) {
+            let numObstacles = Math.floor(rng() * 3) + 1; // 1 to 3 obstacles
+            
+            for (let j = 0; j < numObstacles; j++) {
+                planets.push({
+                    x: startX + 200 + rng() * 400,
+                    y: height * 0.1 + rng() * height * 0.8,
+                    radius: 30 + rng() * 40,
+                    gravityRadius: 200 + rng() * 150,
+                    mass: 300 + rng() * 400,
+                    color: planetColors[Math.floor(rng() * planetColors.length)]
+                });
+            }
+
+            // Generate next target
+            let targetRadius = 45 + rng() * 30;
+            let targetX = startX + 800 + rng() * 400;
+            let targetY = height * 0.1 + rng() * height * 0.8;
+            let targetPlanet = {
+                x: targetX,
+                y: targetY,
+                radius: targetRadius,
+                gravityRadius: 300 + rng() * 150,
+                mass: 500 + rng() * 400,
+                color: planetColors[Math.floor(rng() * planetColors.length)],
+                hasTarget: true,
+                targetAngle: rng() * Math.PI * 2
+            };
+            planets.push(targetPlanet);
+
+            let tAngle = targetPlanet.targetAngle;
+            target.x = targetPlanet.x + Math.cos(tAngle) * targetPlanet.radius;
+            target.y = targetPlanet.y + Math.sin(tAngle) * targetPlanet.radius;
+            target.angle = tAngle;
+            target.radius = 15;
+            target.activePlanet = targetPlanet;
+        }
+
+        function handleDown(x, y) {
+            let worldX = x + camera.x;
+            let worldY = y + camera.y;
+
+            if (isEditing) {
+                // Do not drop elements if we clicked over the UI panel
+                if (x < 300 && y < 450) return;
+                addEditPlanet(worldX, worldY); // Use world coords for editor? Actually we'll skip camera for editor to keep it simple
+                return;
+            }
+            if (ball.isMoving) return;
+            const dist = Math.hypot(worldX - ball.x, worldY - ball.y);
+            // Relaxed hit detection distance to grab the ball easily
+            if (dist < 80) {
+                isDragging = true;
+                dragStartX = ball.x;
+                dragStartY = ball.y;
+                dragCurrX = worldX;
+                dragCurrY = worldY;
+            }
+        }
+
+        function handleMove(x, y) {
+            if (isDragging) {
+                dragCurrX = x + camera.x;
+                dragCurrY = y + camera.y;
+            }
+        }
+
+        function handleUp() {
+            if (isDragging) {
+                isDragging = false;
+                const dx = dragStartX - dragCurrX;
+                const dy = dragStartY - dragCurrY;
+
+                ball.vx = dx * LAUNCH_MULTIPLIER;
+                ball.vy = dy * LAUNCH_MULTIPLIER;
+
+                if (Math.hypot(ball.vx, ball.vy) > 0.5) {
+                    ball.isMoving = true;
+                    ball.trail = [];
+                    ball.bounces = 0;
+                    shots++;
+                    updateUI();
+                    instructionEl.style.opacity = '0';
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => handleDown(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handleUp);
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const t = e.touches[0];
+            handleDown(t.clientX, t.clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging) e.preventDefault();
+            const t = e.touches[0];
+            handleMove(t.clientX, t.clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            if (isDragging) e.preventDefault();
+            handleUp();
+        }, { passive: false });
+
+        // UI Panel Dragging Logic
+        const uiHeader = document.getElementById('ui-header');
+        const uiContainer = document.getElementById('ui-container');
+        let isDraggingUI = false;
+        let uiDragOffsetX = 0;
+        let uiDragOffsetY = 0;
+
+        uiHeader.addEventListener('mousedown', (e) => {
+            if (e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'select') return;
+            isDraggingUI = true;
+            uiHeader.style.cursor = 'grabbing';
+            const rect = uiContainer.getBoundingClientRect();
+            uiDragOffsetX = e.clientX - rect.left;
+            uiDragOffsetY = e.clientY - rect.top;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingUI) {
+                uiContainer.style.left = (e.clientX - uiDragOffsetX) + 'px';
+                uiContainer.style.top = (e.clientY - uiDragOffsetY) + 'px';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDraggingUI) {
+                isDraggingUI = false;
+                uiHeader.style.cursor = 'grab';
+            }
+        });
+
+        // Touch support for UI Panel Dragging
+        uiHeader.addEventListener('touchstart', (e) => {
+            if (e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'select') return;
+            isDraggingUI = true;
+            const t = e.touches[0];
+            const rect = uiContainer.getBoundingClientRect();
+            uiDragOffsetX = t.clientX - rect.left;
+            uiDragOffsetY = t.clientY - rect.top;
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDraggingUI) {
+                const t = e.touches[0];
+                uiContainer.style.left = (t.clientX - uiDragOffsetX) + 'px';
+                uiContainer.style.top = (t.clientY - uiDragOffsetY) + 'px';
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            isDraggingUI = false;
+        });
+
+        function update() {
+            // Camera follow (always runs to ensure smooth lerping)
+            camera.x += (ball.x - width / 2 - camera.x) * 0.1;
+            camera.y += (ball.y - height / 2 - camera.y) * 0.1;
+
+            if (boundsEnabled && gameMode === 'campaign') {
+                camera.x = Math.max(0, Math.min(camera.x, levelWidth - width));
+                camera.y = Math.max(0, Math.min(camera.y, height - height)); // y doesn't scroll in standard campaign
+            } else if (boundsEnabled && gameMode === 'custom') {
+                 // No hard bounds on camera for custom levels with bounds, just follow ball
+            }
+
+            if (!ball.isMoving) return;
+
+            // Add to trail
+            if (ball.trail.length === 0 || Math.hypot(ball.x - ball.trail[ball.trail.length - 1].x, ball.y - ball.trail[ball.trail.length - 1].y) > 3) {
+                ball.trail.push({ x: ball.x, y: ball.y });
+                if (ball.trail.length > MAX_TRAIL_LENGTH) {
+                    ball.trail.shift();
+                }
+            }
+
+            // Gravity & Collision
+            for (let p of planets) {
+                const dx = p.x - ball.x;
+                const dy = p.y - ball.y;
+                const dist = Math.hypot(dx, dy);
+
+                // Apply gravity
+                if (dist > p.radius && dist < p.gravityRadius) {
+                    // Greatly increased the gravity force so it strongly pulls the ball in
+                    const force = (G * p.mass * 15) / (dist * dist);
+                    ball.vx += force * (dx / dist);
+                    ball.vy += force * (dy / dist);
+                }
+
+                // Core collision
+                if (dist <= p.radius + ball.radius) {
+                    const overlap = (p.radius + ball.radius) - dist;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    // Resolve interpenetration
+                    ball.x -= nx * overlap;
+                    ball.y -= ny * overlap;
+
+                    // Reflect and damp velocity
+                    const dot = ball.vx * nx + ball.vy * ny;
+
+                    if (dot > 0.1) {
+                        ball.bounces++;
+                    }
+
+                    if (ball.bounces >= 5) {
+                        ball.vx = 0;
+                        ball.vy = 0;
+                        ball.isMoving = false;
+                        instructionEl.textContent = "Take your next shot!";
+                        instructionEl.style.opacity = '1';
+                    } else {
+                        ball.vx = (ball.vx - 2 * dot * nx) * BOUNCE_DAMPING;
+                        ball.vy = (ball.vy - 2 * dot * ny) * BOUNCE_DAMPING;
+                    }
+                }
+            }
+
+            // Movement
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // Space friction
+            ball.vx *= FRICTION;
+            ball.vy *= FRICTION;
+
+            // Bounds
+            if (boundsEnabled) {
+                if (ball.x < ball.radius) { ball.x = ball.radius; ball.vx *= -BOUNCE_DAMPING; }
+                if (gameMode === 'campaign' && ball.x > levelWidth - ball.radius) { ball.x = levelWidth - ball.radius; ball.vx *= -BOUNCE_DAMPING; }
+                
+                if (ball.y < ball.radius) { ball.y = ball.radius; ball.vy *= -BOUNCE_DAMPING; }
+                else if (ball.y > height - ball.radius) { ball.y = height - ball.radius; ball.vy *= -BOUNCE_DAMPING; }
+            }
+
+            // Stop when very slow
+            if (Math.hypot(ball.vx, ball.vy) < 0.1) {
+                ball.vx = 0;
+                ball.vy = 0;
+                ball.isMoving = false;
+                instructionEl.textContent = "Take your next shot!";
+                instructionEl.style.opacity = '1';
+            }
+
+            // Win condition target reach
+            if (Math.hypot(target.x - ball.x, target.y - ball.y) < target.radius) {
+                ball.isMoving = false;
+                
+                if (gameMode === 'endless') {
+                    endlessScore++;
+                    shots = 0; // Reset shots for the next chunk
+                    updateUI();
+                    
+                    instructionEl.textContent = "Great Shot!";
+                    instructionEl.style.opacity = '1';
+                    
+                    // The old target becomes a new start point of sorts, but ball stays where it is.
+                    // We remove planets that are far behind to save memory
+                    planets = planets.filter(p => p.x > ball.x - width * 1.5);
+                    
+                    // Generate new chunk starting from the current target
+                    generateEndlessChunk(target.activePlanet.x);
+                    
+                    setTimeout(() => {
+                        instructionEl.textContent = "Take your next shot!";
+                    }, 1000);
+                    return;
+                }
+
+                instructionEl.textContent = "Hole in!";
+                instructionEl.style.opacity = '1';
+
+                if (typeof currentLevel === 'number' && currentLevel >= maxLevelUnlocked) {
+                    maxLevelUnlocked = currentLevel + 1;
+                    localStorage.setItem('orbitGolfMaxLevel', maxLevelUnlocked);
+                }
+
+                setTimeout(() => {
+                    if (typeof currentLevel === 'string' && currentLevel.startsWith('custom_')) {
+                        let cidx = parseInt(currentLevel.split('_')[1]);
+                        if (cidx + 1 < customLevels.length) {
+                            currentLevel = `custom_${cidx + 1}`;
+                            initLevel(currentLevel);
+                        } else {
+                            alert("You completed all your custom levels!");
+                            currentLevel = 0;
+                            initLevel(0);
+                        }
+                    } else {
+                        currentLevel++;
+                        initLevel(currentLevel);
+                    }
+                    instructionEl.textContent = "Click and drag backwards relative to the ball to aim & shoot";
+                }, 1500);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = 'white';
+            for (let s of stars) {
+                let sx = (s.x - camera.x * s.size * 0.1) % width;
+                if (sx < 0) sx += width;
+                let sy = (s.y - camera.y * s.size * 0.1) % height;
+                if (sy < 0) sy += height;
+                
+                ctx.globalAlpha = s.alpha;
+                ctx.beginPath();
+                ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            for (let p of planets) {
+                // Gravity field
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.gravityRadius, 0, Math.PI * 2);
+                const gradField = ctx.createRadialGradient(p.x, p.y, p.radius, p.x, p.y, p.gravityRadius);
+                gradField.addColorStop(0, p.color + '33');
+                gradField.addColorStop(1, p.color + '00');
+                ctx.fillStyle = gradField;
+                ctx.fill();
+
+                ctx.strokeStyle = p.color + '40';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([10, 10]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Planet Body
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                const radgrad = ctx.createRadialGradient(p.x - p.radius * 0.3, p.y - p.radius * 0.3, p.radius * 0.1, p.x, p.y, p.radius);
+                radgrad.addColorStop(0, '#ffffff');
+                radgrad.addColorStop(0.3, p.color);
+                radgrad.addColorStop(1, '#000000');
+                ctx.fillStyle = radgrad;
+                ctx.fill();
+            }
+
+            // Target
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+            const targetGrad = ctx.createRadialGradient(target.x, target.y, 1, target.x, target.y, target.radius);
+            targetGrad.addColorStop(0, '#fff');
+            targetGrad.addColorStop(0.6, '#4ecca3');
+            targetGrad.addColorStop(0.9, 'rgba(78, 204, 163, 0.2)');
+            targetGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = targetGrad;
+            ctx.fill();
+
+            // Flag
+            ctx.save();
+            ctx.translate(target.x, target.y);
+            ctx.rotate(target.angle + Math.PI / 2);
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -35);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, -35);
+            ctx.lineTo(15, -28);
+            ctx.lineTo(0, -20);
+            ctx.fillStyle = '#ff3366';
+            ctx.fill();
+
+            ctx.restore();
+
+            // Aiming Line
+            if (isDragging) {
+                const dx = dragStartX - dragCurrX;
+                const dy = dragStartY - dragCurrY;
+                const lineX = ball.x + dx;
+                const lineY = ball.y + dy;
+
+                ctx.beginPath();
+                ctx.moveTo(ball.x, ball.y);
+                ctx.lineTo(lineX, lineY);
+
+                const power = Math.hypot(dx, dy);
+                let gradStrike = ctx.createLinearGradient(ball.x, ball.y, lineX, lineY);
+                gradStrike.addColorStop(0, 'rgba(255,255,255,0.8)');
+                gradStrike.addColorStop(1, power > 200 ? '#ff3366' : '#4ecca3');
+
+                ctx.strokeStyle = gradStrike;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            // Trail
+            if (ball.trail.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(ball.trail[0].x, ball.trail[0].y);
+                for (let i = 1; i < ball.trail.length; i++) {
+                    ctx.lineTo(ball.trail[i].x, ball.trail[i].y);
+                }
+                ctx.lineTo(ball.x, ball.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Ball
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#ffffff';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            ctx.restore();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        resize();
+        initLevel(currentLevel);
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+
+</html>
